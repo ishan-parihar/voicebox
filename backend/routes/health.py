@@ -93,6 +93,12 @@ async def health():
     except ImportError:
         pass
 
+    gpu_compat_warning = None
+    if has_cuda:
+        from ..backends.base import check_cuda_compatibility
+
+        _compatible, gpu_compat_warning = check_cuda_compatibility()
+
     gpu_available = has_cuda or has_mps or has_xpu or has_directml or backend_type == "mlx"
 
     gpu_type = None
@@ -171,6 +177,7 @@ async def health():
             "VOICEBOX_BACKEND_VARIANT",
             "cuda" if torch.cuda.is_available() else ("xpu" if has_xpu else "cpu"),
         ),
+        gpu_compatibility_warning=gpu_compat_warning,
     )
 
 
@@ -181,6 +188,7 @@ async def filesystem_health():
 
     dirs_to_check = {
         "generations": config.get_generations_dir(),
+        "captures": config.get_captures_dir(),
         "profiles": config.get_profiles_dir(),
         "data": config.get_data_dir(),
     }
