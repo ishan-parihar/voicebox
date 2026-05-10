@@ -1,4 +1,4 @@
-import { formatDistance } from 'date-fns';
+import { format, formatDistance } from 'date-fns';
 
 export function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -23,6 +23,21 @@ export function formatDate(date: string | Date): string {
   }
 
   return formatDistance(dateObj, new Date(), { addSuffix: true }).replace(/^about /i, '');
+}
+
+export function formatAbsoluteDate(date: string | Date): string {
+  let dateObj: Date;
+  if (typeof date === 'string') {
+    const dateStr = date.trim();
+    if (!dateStr.includes('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+      dateObj = new Date(dateStr + 'Z');
+    } else {
+      dateObj = new Date(dateStr);
+    }
+  } else {
+    dateObj = date;
+  }
+  return format(dateObj, 'MMM d, yyyy h:mm a');
 }
 
 const ENGINE_DISPLAY_NAMES: Record<string, string> = {

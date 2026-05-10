@@ -86,12 +86,6 @@ def get_torch_device(
 ) -> str:
     """
     Detect the best available torch device.
-
-    Args:
-        allow_xpu: Check for Intel XPU (IPEX) support.
-        allow_directml: Check for DirectML (Windows) support.
-        allow_mps: Allow MPS (Apple Silicon). If False, MPS falls back to CPU.
-        force_cpu_on_mac: Force CPU on macOS regardless of GPU availability.
     """
     if force_cpu_on_mac and platform.system() == "Darwin":
         return "cpu"
@@ -124,6 +118,24 @@ def get_torch_device(
             return "mps"
 
     return "cpu"
+
+
+def get_best_device_for_model(model_size: str) -> str:
+    """
+    Determine the best device for a given model size.
+    Some large models may be forced to CPU if they exceed common GPU memory limits,
+    but we attempt CUDA if available for compatible sizes.
+    """
+    # Define models that MUST use CPU (if any).
+    # Previously 1.7B was hardcoded to CPU, but it fits on 8GB+ GPUs.
+    # We'll allow CUDA for 0.6B and 1.7B, but you can add larger models here.
+    cpu_only_models = [] 
+
+    if model_size in cpu_only_models:
+        return "cpu"
+
+    return get_torch_device(allow_xpu=True, allow_directml=True)
+
 
 
 def check_cuda_compatibility() -> tuple[bool, str | None]:

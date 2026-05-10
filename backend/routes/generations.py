@@ -47,6 +47,13 @@ async def generate_speech(
 
     model_size = (data.model_size or "0.6B") if engine_has_model_sizes(engine) else None
 
+    # For voice cloning with Qwen TTS, use 1.7B to match embedding dimensions.
+    # Voice prompts are created with 1.7B (2048-dim embeddings). Using 0.6B (1024-dim)
+    # would cause dimension mismatch during torch.cat in the model.
+    voice_type = getattr(profile, "voice_type", None) or "cloned"
+    if voice_type == "cloned" and engine == "qwen" and not data.model_size:
+        model_size = "1.7B"
+
     generation = await history.create_generation(
         profile_id=data.profile_id,
         text=data.text,
@@ -81,23 +88,22 @@ async def generate_speech(
             except Exception:
                 pass
 
-    enqueue_generation(
-        run_generation(
-            generation_id=generation_id,
-            profile_id=data.profile_id,
-            text=data.text,
-            language=data.language,
-            engine=engine,
-            model_size=model_size,
-            seed=data.seed,
-            normalize=data.normalize,
-            effects_chain=effects_chain_config,
-            instruct=data.instruct,
-            mode="generate",
-            max_chunk_chars=data.max_chunk_chars,
-            crossfade_ms=data.crossfade_ms,
-        )
+    coro = run_generation(
+        generation_id=generation_id,
+        profile_id=data.profile_id,
+        text=data.text,
+        language=data.language,
+        engine=engine,
+        model_size=model_size,
+        seed=data.seed,
+        normalize=data.normalize,
+        effects_chain=effects_chain_config,
+        instruct=data.instruct,
+        mode="generate",
+        max_chunk_chars=data.max_chunk_chars,
+        crossfade_ms=data.crossfade_ms,
     )
+    enqueue_generation(generation_id, coro)
 
     return generation
 
@@ -127,6 +133,7 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
     )
 
     enqueue_generation(
+        generation_id,
         run_generation(
             generation_id=generation_id,
             profile_id=gen.profile_id,

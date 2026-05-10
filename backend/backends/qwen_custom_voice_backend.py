@@ -25,6 +25,7 @@ from . import TTSBackend, LANGUAGE_CODE_TO_NAME
 from .base import (
     is_model_cached,
     get_torch_device,
+    get_best_device_for_model,
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
 )
@@ -61,11 +62,7 @@ class QwenCustomVoiceBackend:
     def __init__(self, model_size: str = "0.6B"):
         self.model = None
         self.model_size = model_size
-        self.device = self._get_device()
         self._current_model_size: Optional[str] = None
-
-    def _get_device(self) -> str:
-        return get_torch_device(allow_xpu=True, allow_directml=True)
 
     def is_loaded(self) -> bool:
         return self.model is not None
@@ -102,9 +99,10 @@ class QwenCustomVoiceBackend:
             from qwen_tts import Qwen3TTSModel
 
             model_path = self._get_model_path(model_size)
-            logger.info("Loading Qwen CustomVoice %s on %s...", model_size, self.device)
+            device = get_best_device_for_model(model_size)
+            logger.info("Loading Qwen CustomVoice %s on %s...", model_size, device)
 
-            if self.device == "cpu":
+            if device == "cpu":
                 self.model = Qwen3TTSModel.from_pretrained(
                     model_path,
                     torch_dtype=torch.float32,
@@ -113,12 +111,13 @@ class QwenCustomVoiceBackend:
             else:
                 self.model = Qwen3TTSModel.from_pretrained(
                     model_path,
-                    device_map=self.device,
+                    device_map=device,
                     torch_dtype=torch.bfloat16,
                 )
 
         self._current_model_size = model_size
         self.model_size = model_size
+        self.device = device
         logger.info("Qwen CustomVoice %s loaded successfully", model_size)
 
     def unload_model(self) -> None:

@@ -14,6 +14,7 @@ from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
 from .base import (
     is_model_cached,
     get_torch_device,
+    get_best_device_for_model,
     empty_device_cache,
     manual_seed,
     combine_voice_prompts as _combine_voice_prompts,
@@ -30,12 +31,7 @@ class PyTorchTTSBackend:
     def __init__(self, model_size: str = "1.7B"):
         self.model = None
         self.model_size = model_size
-        self.device = self._get_device()
         self._current_model_size = None
-
-    def _get_device(self) -> str:
-        """Get the best available device."""
-        return get_torch_device(allow_xpu=True, allow_directml=True)
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -101,9 +97,8 @@ class PyTorchTTSBackend:
 
             model_path = self._get_model_path(model_size)
 
-            # 0.6B fits on 8GB GPU (bfloat16 ≈ 1.2GB). 1.7B needs CPU.
-            force_cpu = model_size == "1.7B"
-            device = "cpu" if force_cpu else self.device
+            # Determine best device dynamically based on model size and availability
+            device = get_best_device_for_model(model_size)
 
             # Free fragmented GPU memory before loading
             if device == "cuda":
@@ -247,11 +242,6 @@ class PyTorchSTTBackend:
         self.model = None
         self.processor = None
         self.model_size = model_size
-        self.device = self._get_device()
-
-    def _get_device(self) -> str:
-        """Get the best available device."""
-        return get_torch_device(allow_xpu=True, allow_directml=True)
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -291,13 +281,15 @@ class PyTorchSTTBackend:
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
             model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
-            logger.info("Loading Whisper model %s on %s...", model_size, self.device)
+            device = get_best_device_for_model(model_size)
+            logger.info("Loading Whisper model %s on %s...", model_size, device)
 
             with force_offline_if_cached(is_cached, progress_model_name):
                 self.processor = WhisperProcessor.from_pretrained(model_name)
                 self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
 
-        self.model.to(self.device)
+        self.model.to(device)
+        self.device = device
         self.model_size = model_size
         logger.info("Whisper model %s loaded successfully", model_size)
 

@@ -271,6 +271,30 @@ async def get_profile(
     return _profile_to_response(profile)
 
 
+async def get_profile_orm_by_name_or_id(
+    identifier: str,
+    db: Session,
+) -> DBVoiceProfile | None:
+    """
+    Get a voice profile by ID or name, returning the ORM object.
+
+    Args:
+        identifier: Profile ID or name
+        db: Database session
+
+    Returns:
+        ORM profile object or None if not found
+    """
+    # Try by ID first
+    profile = db.query(DBVoiceProfile).filter_by(id=identifier).first()
+    if profile:
+        return profile
+
+    # Try by name
+    profile = db.query(DBVoiceProfile).filter_by(name=identifier).first()
+    return profile
+
+
 async def get_profile_samples(
     profile_id: str,
     db: Session,
