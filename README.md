@@ -321,3 +321,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 <p align="center">
   <a href="https://voicebox.sh">voicebox.sh</a>
 </p>
+---
+Developed by [Ishan Parihar](https://github.com/ishan-parihar) — If you find this useful, [consider supporting](https://rzp.io/rzp/ishan-parihar)
